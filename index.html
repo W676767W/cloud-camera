@@ -65,6 +65,16 @@ button[disabled] { opacity: .5; pointer-events: none; }
   flex-direction: column;
 }
 
+/* ---------- 标签页切换（缺了这段会导致三个页面叠在一起显示） ---------- */
+.tab {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+.tab.active {
+  display: block;
+}
+
 /* ---------- 登录页 ---------- */
 #page-login { align-items: center; justify-content: center; padding: 24px; background: radial-gradient(1200px 500px at 50% -10%, #1b2b4a 0%, var(--bg) 60%); }
 .login-box { width: 100%; max-width: 400px; }
@@ -303,6 +313,7 @@ button[disabled] { opacity: .5; pointer-events: none; }
       <div id="cam-fallback" class="hidden">
         <div class="fb-icon">🚫</div>
         <p>无法启动实时预览（请确认已授权摄像头）</p>
+        <button id="btn-fallback-pick" class="primary" style="margin-top:16px;padding:12px 20px;">🖼 从相册选择照片</button>
       </div>
       <!-- 拍照预览 -->
       <div id="shot-preview" class="hidden">
@@ -421,6 +432,7 @@ button[disabled] { opacity: .5; pointer-events: none; }
     btnSwitch: $("btn-switch"),
     btnShutter: $("btn-shutter"),
     btnAlbumPick: $("btn-album-pick"),
+    btnFallbackPick: $("btn-fallback-pick"),
     shotPreview: $("shot-preview"),
     shotImg: $("shot-img"),
     btnRetake: $("btn-retake"),
@@ -541,8 +553,14 @@ button[disabled] { opacity: .5; pointer-events: none; }
     $("tab-" + tab).classList.add("active");
     document.querySelector('.tab-btn[data-tab="' + tab + '"]').classList.add("active");
     if (tab === "camera") startCamera();
-    if (tab === "album") loadPhotos();
+    if (tab === "album") { stopStream(); loadPhotos(); }
+    if (tab === "settings") stopStream();
   }
+
+  // 底部 tab 按钮点击切换
+  document.querySelectorAll(".tab-btn").forEach(function (b) {
+    b.addEventListener("click", function () { switchTab(b.getAttribute("data-tab")); });
+  });
 
   // ---------- 登录 ----------
   els.btnLogin.addEventListener("click", doLogin);
@@ -631,6 +649,7 @@ button[disabled] { opacity: .5; pointer-events: none; }
 
   // 从系统相机 / 相册选图
   els.btnAlbumPick.addEventListener("click", function () { els.fileInput.removeAttribute("capture"); els.fileInput.click(); });
+  if (els.btnFallbackPick) els.btnFallbackPick.addEventListener("click", function () { els.fileInput.removeAttribute("capture"); els.fileInput.click(); });
   els.fileInput.addEventListener("change", function () {
     var f = els.fileInput.files && els.fileInput.files[0];
     els.fileInput.value = "";
