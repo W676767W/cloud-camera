@@ -473,22 +473,30 @@ button[disabled] { opacity: .5; pointer-events: none; }
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: data }),
-    }).then(function (r) { return r.json(); })
+    }).then(function (r) {
+      // Space 休眠/唤醒期间可能返回 HTML 提示页，此时给出可读提示
+      return r.text().then(function (t) {
+        try { return JSON.parse(t); }
+        catch (e) { throw new Error("后端正在唤醒或维护中，请等 30 秒后重试"); }
+      });
+    })
       .then(function (res) {
         if (!res || !res.event_id) throw new Error("服务调用失败");
         return fetch(API_BASE + "/gradio_api/call/" + apiName + "/" + res.event_id).then(function (r) { return r.text(); });
       })
       .then(function (sseText) {
+        // gradio SSE 格式：event: complete / data: ["<json字符串>"]
         var result = null;
         sseText.split("\n").forEach(function (line) {
           if (line.indexOf("data: ") === 0) {
             try {
               var obj = JSON.parse(line.slice(6));
-              if (obj.result) result = obj.result;
+              if (Array.isArray(obj)) result = obj;
+              else if (obj && obj.result) result = obj.result;
             } catch (e) {}
           }
         });
-        if (!result) throw new Error("服务无响应，请重试");
+        if (!result) throw new Error("后端无响应，请稍后重试（Space 首次访问需唤醒约 30 秒）");
         var payload;
         try { payload = JSON.parse(result[0]); } catch (e) { throw new Error("响应解析失败"); }
         if (!payload.ok) throw new Error(payload.error || "操作失败");
