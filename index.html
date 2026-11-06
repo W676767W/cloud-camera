@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1115">
+<title>云端相机</title>
+<style>
+/* 云端相机 - 深色移动端主题 */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #0f1115;
+  --card: #1a1d24;
+  --card2: #232833;
+  --line: #2c3240;
+  --text: #f2f4f8;
+  --dim: #9aa3b2;
+  --accent: #3b82f6;
+  --accent2: #2563eb;
+  --danger: #ef4444;
+  --ok: #22c55e;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- 通用按钮 ---------- */
+button {
+  font-family: inherit;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card2);
+  cursor: pointer;
+  transition: transform .08s, opacity .15s, background .15s;
+}
+button:active { transform: scale(.97); }
+button.primary { background: var(--accent); font-weight: 600; }
+button.primary:active { background: var(--accent2); }
+button.ghost { background: rgba(255,255,255,.12); }
+button.danger { background: rgba(239,68,68,.15); color: #fca5a5; }
+button.small { padding: 8px 14px; font-size: 14px; border-radius: 10px; }
+button.round { width: 56px; height: 56px; border-radius: 50%; font-size: 22px; background: rgba(255,255,255,.12); }
+button[disabled] { opacity: .5; pointer-events: none; }
+
+/* ---------- 页面容器 ---------- */
+.page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 登录页 ---------- */
+#page-login { align-items: center; justify-content: center; padding: 24px; background: radial-gradient(1200px 500px at 50% -10%, #1b2b4a 0%, var(--bg) 60%); }
+.login-box { width: 100%; max-width: 400px; }
+.logo { font-size: 56px; text-align: center; margin-bottom: 8px; }
+.login-box h1 { text-align: center; font-size: 26px; letter-spacing: 1px; }
+.subtitle { text-align: center; color: var(--dim); margin: 8px 0 32px; font-size: 14px; }
+.field { margin-bottom: 16px; }
+.field label { display: block; color: var(--dim); font-size: 13px; margin-bottom: 6px; }
+.field input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  outline: none;
+}
+.field input:focus { border-color: var(--accent); }
+#btn-login { width: 100%; margin-top: 8px; }
+.hint { text-align: center; color: var(--dim); font-size: 12px; margin-top: 14px; line-height: 1.6; }
+
+/* ---------- 相机页 ---------- */
+#tab-camera { position: relative; }
+#cam-stage { position: absolute; inset: 0; background: #000; overflow: hidden; }
+#cam-video { width: 100%; height: 100%; object-fit: cover; }
+#cam-canvas { display: none; }
+#cam-fallback {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--dim); gap: 12px;
+}
+.fb-icon { font-size: 48px; }
+#cam-controls {
+  position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  display: flex; align-items: center; justify-content: space-evenly;
+  padding: 0 30px;
+}
+.shutter {
+  width: 78px; height: 78px; border-radius: 50%;
+  background: #fff;
+  border: 6px solid rgba(255,255,255,.35);
+  background-clip: padding-box;
+  font-size: 30px;
+}
+.shutter:active { transform: scale(.92); }
+
+/* 拍照预览 */
+#shot-preview {
+  position: absolute; inset: 0;
+  background: #000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#shot-preview img { max-width: 100%; max-height: 62vh; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+.shot-actions { display: flex; gap: 12px; margin-top: 20px; width: 100%; max-width: 420px; }
+.shot-actions button { flex: 1; }
+
+/* 上传进度 */
+#upload-progress {
+  position: absolute; left: 24px; right: 24px; top: calc(env(safe-area-inset-top, 0px) + 20px);
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  z-index: 5;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+#upload-bar {
+  height: 6px; width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  margin-bottom: 8px;
+  transition: width .2s;
+}
+#upload-text { font-size: 13px; color: var(--dim); }
+
+/* ---------- 相册页 ---------- */
+#tab-album { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: 90px; overflow-y: auto; }
+.tab-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px 14px;
+  position: sticky; top: 0;
+  background: var(--bg);
+  z-index: 2;
+}
+.tab-head h2 { font-size: 18px; }
+#album-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 0 3px;
+}
+#album-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 2px;
+  background: var(--card);
+}
+#album-empty { text-align: center; padding: 80px 20px; color: var(--dim); }
+.empty-icon { font-size: 56px; margin-bottom: 14px; }
+#album-more { text-align: center; color: var(--dim); font-size: 13px; padding: 18px; }
+
+/* ---------- 设置页 ---------- */
+#tab-settings { padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 90px; overflow-y: auto; }
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.card-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--dim);
+}
+.card-row b { color: var(--text); }
+.switch-row { cursor: pointer; position: relative; padding-right: 64px; }
+.switch-row input { display: none; }
+.switch {
+  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+  width: 46px; height: 26px;
+  background: var(--card2);
+  border-radius: 13px;
+  transition: background .2s;
+}
+.switch::after {
+  content: "";
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.switch-row input:checked + .switch { background: var(--accent); }
+.switch-row input:checked + .switch::after { transform: translateX(20px); }
+#btn-logout { width: 100%; margin-bottom: 24px; }
+.about { color: var(--dim); font-size: 12px; text-align: center; line-height: 2; }
+
+/* ---------- 底部导航 ---------- */
+#tabbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: rgba(18,20,26,.96);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 10;
+}
+.tab-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 3px;
+  background: transparent;
+  border-radius: 0;
+  padding: 9px 0 8px;
+  font-size: 11px;
+  color: var(--dim);
+}
+.tab-btn.active { color: var(--accent); }
+.tb-icon { font-size: 20px; }
+
+/* ---------- 大图查看器 ---------- */
+#viewer {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.95);
+  z-index: 50;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#viewer-img { max-width: 100%; max-height: 66vh; border-radius: 10px; }
+#viewer-info { color: var(--dim); font-size: 13px; margin: 16px 0; text-align: center; line-height: 1.8; }
+.viewer-actions { display: flex; gap: 12px; }
+#btn-viewer-close {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  font-size: 16px;
+  background: rgba(255,255,255,.15);
+}
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 110px;
+  transform: translateX(-50%);
+  background: rgba(20,22,28,.95);
+  color: var(--text);
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-size: 14px;
+  z-index: 100;
+  max-width: 84vw;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  animation: toast-in .2s;
+}
+#toast.ok { border: 1px solid rgba(34,197,94,.5); }
+#toast.err { border: 1px solid rgba(239,68,68,.5); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+</style>
+</head>
+<body>
+
+<!-- ============ 登录页 ============ -->
+<div id="page-login" class="page">
+  <div class="login-box">
+    <div class="logo">📷</div>
+    <h1>云端相机</h1>
+    <p class="subtitle">拍照即传云端，走到哪看到哪</p>
+    <div class="field">
+      <label for="login-username">用户名</label>
+      <input id="login-username" type="text" placeholder="给自己起个名字" maxlength="24" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="login-pin">PIN 码</label>
+      <input id="login-pin" type="password" placeholder="4-20 位，保护你的相册" maxlength="20" autocomplete="current-password">
+    </div>
+    <button id="btn-login" class="primary">进入云端相册</button>
+    <p class="hint">首次使用输入用户名和 PIN 会自动创建你的专属相册</p>
+  </div>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="page-app" class="page hidden">
+
+  <!-- 相机页 -->
+  <section id="tab-camera" class="tab active">
+    <div id="cam-stage">
+      <video id="cam-video" autoplay playsinline muted></video>
+      <canvas id="cam-canvas" class="hidden"></canvas>
+      <div id="cam-fallback" class="hidden">
+        <div class="fb-icon">🚫</div>
+        <p>无法启动实时预览（请确认已授权摄像头）</p>
+      </div>
+      <!-- 拍照预览 -->
+      <div id="shot-preview" class="hidden">
+        <img id="shot-img" alt="预览">
+        <div class="shot-actions">
+          <button id="btn-retake" class="ghost">↻ 重拍</button>
+          <button id="btn-save-local">💾 存本地</button>
+          <button id="btn-upload-cloud" class="primary">☁️ 传云端</button>
+        </div>
+        <p class="hint" id="shot-hint">上传后可在云端相册随时查看</p>
+      </div>
+      <!-- 取景控制 -->
+      <div id="cam-controls">
+        <button id="btn-switch" class="round" title="切换前后摄像头">🔄</button>
+        <button id="btn-shutter" class="shutter" title="拍照">📷</button>
+        <button id="btn-album-pick" class="round" title="从手机相册选照片">🖼</button>
+      </div>
+    </div>
+    <div id="upload-progress" class="hidden"><div id="upload-bar"></div><span id="upload-text">上传中</span></div>
+  </section>
+
+  <!-- 相册页 -->
+  <section id="tab-album" class="tab">
+    <div class="tab-head">
+      <h2>云端相册</h2>
+      <button id="btn-refresh" class="small">↻ 刷新</button>
+    </div>
+    <div id="album-grid"></div>
+    <div id="album-empty" class="hidden">
+      <div class="empty-icon">🖼</div>
+      <p>相册还是空的</p>
+      <p class="hint">切到「相机」页拍第一张照片吧</p>
+    </div>
+    <div id="album-more" class="hidden">上拉加载更多</div>
+  </section>
+
+  <!-- 设置页 -->
+  <section id="tab-settings" class="tab">
+    <div class="tab-head"><h2>设置</h2></div>
+    <div class="card">
+      <div class="card-row">
+        <span>当前用户</span>
+        <b id="set-username">-</b>
+      </div>
+      <label class="card-row switch-row">
+        <span>上传后自动存一份到本地</span>
+        <input type="checkbox" id="set-autosave">
+        <span class="switch"></span>
+      </label>
+    </div>
+    <button id="btn-logout" class="danger">退出登录</button>
+    <div class="about">
+      <p>照片存储于你的 Hugging Face 云空间，受 PIN 保护</p>
+      <p>云端相机 v1.0</p>
+    </div>
+  </section>
+
+  <!-- 底部导航 -->
+  <nav id="tabbar">
+    <button class="tab-btn active" data-tab="camera"><span class="tb-icon">📷</span>相机</button>
+    <button class="tab-btn" data-tab="album"><span class="tb-icon">🖼</span>相册</button>
+    <button class="tab-btn" data-tab="settings"><span class="tb-icon">⚙️</span>设置</button>
+  </nav>
+</div>
+
+<!-- ============ 大图查看器 ============ -->
+<div id="viewer" class="hidden">
+  <img id="viewer-img" alt="查看">
+  <div id="viewer-info"></div>
+  <div class="viewer-actions">
+    <button id="btn-viewer-download">💾 下载</button>
+    <button id="btn-viewer-delete" class="danger">🗑 删除</button>
+  </div>
+  <button id="btn-viewer-close" class="close">✕</button>
+</div>
+
+<!-- 隐藏的图片选择器（系统相机 / 相册） -->
+<input type="file" id="file-input" accept="image/*" class="hidden">
+
+<div id="toast" class="hidden"></div>
+
+<script>
+/* 云端相机 - 前端逻辑 */
+(function () {
+  "use strict";
+
+  // ---------- 状态 ----------
+  var user = null;            // { username, pin }
+  var allPhotos = [];         // 云端相册全部照片元数据
+  var renderedCount = 0;      // 已渲染张数
+  var PAGE = 30;
+  var currentPhoto = null;    // 查看器中的照片
+  var shotBlob = null;        // 拍照/选择后的图片 blob
+  var stream = null;          // 摄像头流
+  var uploading = false;
+
+  var LS_USER = "cc_user";
+  var LS_AUTOSAVE = "cc_autosave";
+
+  // HF 后端（Gradio API）地址：部署到 GitHub Pages 时保持此绝对地址；
+  // 若整站同域部署（嵌入 Space），可改为空字符串 "" 使用相对路径。
+  var API_BASE = "https://wacatw-cloud-camera.hf.space";
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    pageLogin: $("page-login"),
+    pageApp: $("page-app"),
+    loginUsername: $("login-username"),
+    loginPin: $("login-pin"),
+    btnLogin: $("btn-login"),
+    camVideo: $("cam-video"),
+    camCanvas: $("cam-canvas"),
+    camFallback: $("cam-fallback"),
+    camControls: $("cam-controls"),
+    btnSwitch: $("btn-switch"),
+    btnShutter: $("btn-shutter"),
+    btnAlbumPick: $("btn-album-pick"),
+    shotPreview: $("shot-preview"),
+    shotImg: $("shot-img"),
+    btnRetake: $("btn-retake"),
+    btnSaveLocal: $("btn-save-local"),
+    btnUploadCloud: $("btn-upload-cloud"),
+    shotHint: $("shot-hint"),
+    uploadProgress: $("upload-progress"),
+    uploadBar: $("upload-bar"),
+    uploadText: $("upload-text"),
+    albumGrid: $("album-grid"),
+    albumEmpty: $("album-empty"),
+    albumMore: $("album-more"),
+    btnRefresh: $("btn-refresh"),
+    setUsername: $("set-username"),
+    setAutosave: $("set-autosave"),
+    btnLogout: $("btn-logout"),
+    viewer: $("viewer"),
+    viewerImg: $("viewer-img"),
+    viewerInfo: $("viewer-info"),
+    btnViewerDownload: $("btn-viewer-download"),
+    btnViewerDelete: $("btn-viewer-delete"),
+    btnViewerClose: $("btn-viewer-close"),
+    fileInput: $("file-input"),
+    toast: $("toast"),
+  };
+
+  // ---------- 工具 ----------
+  function toast(msg, type) {
+    els.toast.textContent = msg;
+    els.toast.className = type || "";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { els.toast.className = "hidden"; }, 2400);
+  }
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  function apiHeaders() {
+    return user ? { "X-Pin": user.pin } : {};
+  }
+
+  // ---------- Gradio API 调用层（ZeroGPU Space 业务接口） ----------
+  // 调用流程：POST /gradio_api/call/{api_name} 拿到 event_id，
+  // 再 GET /gradio_api/call/{api_name}/{event_id} 轮询（SSE）取结果。
+  function callGradio(apiName, data) {
+    return fetch(API_BASE + "/gradio_api/call/" + apiName, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: data }),
+    }).then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res || !res.event_id) throw new Error("服务调用失败");
+        return fetch(API_BASE + "/gradio_api/call/" + apiName + "/" + res.event_id).then(function (r) { return r.text(); });
+      })
+      .then(function (sseText) {
+        var result = null;
+        sseText.split("\n").forEach(function (line) {
+          if (line.indexOf("data: ") === 0) {
+            try {
+              var obj = JSON.parse(line.slice(6));
+              if (obj.result) result = obj.result;
+            } catch (e) {}
+          }
+        });
+        if (!result) throw new Error("服务无响应，请重试");
+        var payload;
+        try { payload = JSON.parse(result[0]); } catch (e) { throw new Error("响应解析失败"); }
+        if (!payload.ok) throw new Error(payload.error || "操作失败");
+        return payload;
+      });
+  }
+
+  // 先经 Gradio 上传通道拿临时文件路径，再入云端相册
+  function gradioUploadBlob(blob, fname) {
+    var fd = new FormData();
+    fd.append("files", blob, fname);
+    return fetch(API_BASE + "/gradio_api/upload", { method: "POST", body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (paths) {
+        if (!paths || !paths[0]) throw new Error("上传通道失败");
+        return paths[0];
+      });
+  }
+
+  function saveUser() {
+    try { localStorage.setItem(LS_USER, JSON.stringify(user)); } catch (e) {}
+  }
+
+  // ---------- 页面 / Tab ----------
+  function showLogin() {
+    els.pageLogin.classList.remove("hidden");
+    els.pageApp.classList.add("hidden");
+  }
+
+  function showApp() {
+    els.pageLogin.classList.add("hidden");
+    els.pageApp.classList.remove("hidden");
+    els.setUsername.textContent = user.username;
+    try { els.setAutosave.checked = localStorage.getItem(LS_AUTOSAVE) === "1"; } catch (e) {}
+    switchTab("album");
+    loadPhotos();
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+    document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+    $("tab-" + tab).classList.add("active");
+    document.querySelector('.tab-btn[data-tab="' + tab + '"]').classList.add("active");
+    if (tab === "camera") startCamera();
+    if (tab === "album") loadPhotos();
+  }
+
+  // ---------- 登录 ----------
+  els.btnLogin.addEventListener("click", doLogin);
+  els.loginPin.addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  els.loginUsername.addEventListener("keydown", function (e) { if (e.key === "Enter") els.loginPin.focus(); });
+
+  function doLogin() {
+    var username = els.loginUsername.value.trim();
+    var pin = els.loginPin.value;
+    if (!username) { toast("请输入用户名", "err"); return; }
+    if (pin.length < 4) { toast("PIN 至少 4 位", "err"); return; }
+    els.btnLogin.disabled = true;
+    els.btnLogin.textContent = "登录中...";
+    callGradio("api_login", [username, pin])
+      .then(function (res) {
+        user = { username: username, pin: pin };
+        saveUser();
+        toast(res.is_new ? "相册创建成功，欢迎！" : "欢迎回来，" + username, "ok");
+        showApp();
+      })
+      .catch(function (err) { toast(err.message, "err"); })
+      .finally(function () {
+        els.btnLogin.disabled = false;
+        els.btnLogin.textContent = "进入云端相册";
+      });
+  }
+
+  // ---------- 相机 ----------
+  var facing = "environment";
+
+  function startCamera() {
+    if (!els.shotPreview.classList.contains("hidden")) return; // 预览中不重启
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      els.camFallback.classList.remove("hidden");
+      els.camControls.classList.add("hidden");
+      return;
+    }
+    stopStream();
+    els.camVideo.classList.remove("hidden");
+    els.camFallback.classList.add("hidden");
+    els.camControls.classList.remove("hidden");
+    var opts = { audio: false, video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+    navigator.mediaDevices.getUserMedia(opts)
+      .then(function (s) {
+        stream = s;
+        els.camVideo.srcObject = s;
+      })
+      .catch(function () {
+        // 尝试不带 facingMode
+        navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+          .then(function (s) {
+            stream = s;
+            els.camVideo.srcObject = s;
+          })
+          .catch(function () {
+            els.camVideo.classList.add("hidden");
+            els.camFallback.classList.remove("hidden");
+            els.camControls.classList.add("hidden");
+          });
+      });
+  }
+
+  function stopStream() {
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (els.camVideo.srcObject) { els.camVideo.srcObject = null; }
+  }
+
+  els.btnSwitch.addEventListener("click", function () {
+    facing = facing === "environment" ? "user" : "environment";
+    startCamera();
+  });
+
+  // 快门：截取当前帧
+  els.btnShutter.addEventListener("click", function () {
+    if (els.camVideo.readyState < 2) { toast("相机还没准备好", "err"); return; }
+    var v = els.camVideo;
+    var canvas = els.camCanvas;
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    canvas.getContext("2d").drawImage(v, 0, 0);
+    canvas.toBlob(function (blob) {
+      if (!blob) { toast("拍照失败，请重试", "err"); return; }
+      showShotPreview(blob);
+    }, "image/jpeg", 0.92);
+  });
+
+  // 从系统相机 / 相册选图
+  els.btnAlbumPick.addEventListener("click", function () { els.fileInput.removeAttribute("capture"); els.fileInput.click(); });
+  els.fileInput.addEventListener("change", function () {
+    var f = els.fileInput.files && els.fileInput.files[0];
+    els.fileInput.value = "";
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { toast("图片超过 20MB", "err"); return; }
+    showShotPreview(f);
+  });
+
+  function showShotPreview(src) {
+    stopStream();
+    els.camVideo.classList.add("hidden");
+    els.camControls.classList.add("hidden");
+    els.camFallback.classList.add("hidden");
+    els.shotPreview.classList.remove("hidden");
+    if (src instanceof Blob) {
+      shotBlob = src;
+      els.shotImg.src = URL.createObjectURL(src);
+    } else {
+      shotBlob = src;
+      els.shotImg.src = URL.createObjectURL(src);
+    }
+  }
+
+  els.btnRetake.addEventListener("click", function () {
+    els.shotPreview.classList.add("hidden");
+    els.shotImg.src = "";
+    shotBlob = null;
+    startCamera();
+  });
+
+  // 保存到本地（下载）
+  function saveBlobToLocal(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name || ("photo_" + Date.now() + ".jpg");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+    toast("已保存到本地（如未自动保存，请在浏览器下载记录中查看）", "ok");
+  }
+
+  els.btnSaveLocal.addEventListener("click", function () {
+    if (!shotBlob) return;
+    var name = user ? ("cc_" + user.username + "_" + Date.now() + ".jpg") : "photo.jpg";
+    saveBlobToLocal(shotBlob, name);
+  });
+
+  // 上传云端（XHR 带进度：先传 Gradio 通道拿临时路径，再写入相册）
+  els.btnUploadCloud.addEventListener("click", uploadShot);
+  function uploadShot() {
+    if (!shotBlob || uploading) return;
+    uploading = true;
+    var fname = shotBlob instanceof File ? shotBlob.name : ("camera_" + Date.now() + ".jpg");
+
+    els.uploadProgress.classList.remove("hidden");
+    els.uploadBar.style.width = "0%";
+    els.uploadText.textContent = "上传中 0%";
+
+    var fd = new FormData();
+    fd.append("files", shotBlob, fname);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", API_BASE + "/gradio_api/upload");
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) {
+        var pct = Math.round(e.loaded / e.total * 100);
+        els.uploadBar.style.width = pct + "%";
+        els.uploadText.textContent = "上传中 " + pct + "%";
+      }
+    };
+    xhr.onload = function () {
+      var paths;
+      try { paths = JSON.parse(xhr.responseText); } catch (e) { paths = null; }
+      if (xhr.status !== 200 || !paths || !paths[0]) {
+        els.uploadProgress.classList.add("hidden");
+        uploading = false;
+        toast("上传失败，请重试", "err");
+        return;
+      }
+      els.uploadText.textContent = "正在写入相册...";
+      callGradio("api_upload", [user.username, user.pin, paths[0]])
+        .then(function () {
+          els.uploadProgress.classList.add("hidden");
+          uploading = false;
+          if (localStorage.getItem(LS_AUTOSAVE) === "1") {
+            try { saveBlobToLocal(shotBlob, "cc_" + user.username + "_" + Date.now() + ".jpg"); } catch (e) {}
+          }
+          toast("已上传到云端相册", "ok");
+          els.btnRetake.click();
+          loadPhotos();
+        })
+        .catch(function (err) {
+          els.uploadProgress.classList.add("hidden");
+          uploading = false;
+          toast(err.message, "err");
+        });
+    };
+    xhr.onerror = function () {
+      els.uploadProgress.classList.add("hidden");
+      uploading = false;
+      toast("网络错误，上传失败", "err");
+    };
+    xhr.send(fd);
+  }
+
+  // ---------- 相册 ----------
+  function loadPhotos() {
+    if (!user) return;
+    callGradio("api_photos", [user.username, user.pin])
+      .then(function (res) {
+        allPhotos = res.photos || [];
+        renderedCount = 0;
+        els.albumGrid.innerHTML = "";
+        els.albumEmpty.classList.toggle("hidden", allPhotos.length > 0);
+        els.albumMore.classList.add("hidden");
+        renderMore();
+      })
+      .catch(function (err) {
+        if (err.message.indexOf("PIN") >= 0 || err.message.indexOf("用户名") >= 0) {
+          toast("登录状态失效，请重新登录", "err");
+          logout();
+        } else {
+          toast(err.message, "err");
+        }
+      });
+  }
+
+  function renderMore() {
+    var chunk = allPhotos.slice(renderedCount, renderedCount + PAGE);
+    chunk.forEach(function (p) {
+      var img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = p.thumb_b64 || "";
+      img.alt = p.name || "";
+      img.dataset.id = p.id;
+      img.addEventListener("click", function () { openViewer(p); });
+      els.albumGrid.appendChild(img);
+    });
+    renderedCount += chunk.length;
+    els.albumMore.classList.toggle("hidden", renderedCount >= allPhotos.length);
+  }
+
+  // 滚动加载
+  $("tab-album").addEventListener("scroll", function () {
+    var el = this;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) renderMore();
+  });
+
+  els.btnRefresh.addEventListener("click", function () {
+    els.btnRefresh.textContent = "刷新中...";
+    loadPhotos();
+    setTimeout(function () { els.btnRefresh.textContent = "↻ 刷新"; }, 600);
+  });
+
+  // ---------- 大图查看器 ----------
+  function openViewer(p) {
+    currentPhoto = p;
+    els.viewerImg.src = "";
+    var base = p.name + "  ·  " + fmtSize(p.size) + "  ·  " + p.uploaded_at +
+      (p.width ? "  ·  " + p.width + "×" + p.height : "");
+    els.viewerInfo.textContent = base + "  （加载中...）";
+    els.viewer.classList.remove("hidden");
+    callGradio("api_photo", [user.username, user.pin, p.id])
+      .then(function (res) {
+        els.viewerImg.src = res.b64;
+        els.viewerInfo.textContent = base;
+      })
+      .catch(function (err) {
+        els.viewerInfo.textContent = base + "  （" + err.message + "）";
+      });
+  }
+
+  els.btnViewerClose.addEventListener("click", function () {
+    els.viewer.classList.add("hidden");
+    els.viewerImg.src = "";
+    currentPhoto = null;
+  });
+
+  function dataURLToBlob(dataUrl) {
+    var parts = dataUrl.split(",");
+    var mime = parts[0].match(/:(.*?);/)[1];
+    var bin = atob(parts[1]);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  els.btnViewerDownload.addEventListener("click", function () {
+    if (!currentPhoto) return;
+    if (els.viewerImg.src && els.viewerImg.src.indexOf("data:") === 0) {
+      saveBlobToLocal(dataURLToBlob(els.viewerImg.src), currentPhoto.name || (currentPhoto.id + ".jpg"));
+    } else {
+      toast("图片还没加载完，请稍候再下载", "err");
+    }
+  });
+
+  els.btnViewerDelete.addEventListener("click", function () {
+    if (!currentPhoto) return;
+    if (!window.confirm("确定删除这张照片吗？云端和本地副本都会被删掉（本地已下载的不受影响）。")) return;
+    callGradio("api_delete", [user.username, user.pin, currentPhoto.id])
+      .then(function () {
+        els.viewer.classList.add("hidden");
+        els.viewerImg.src = "";
+        currentPhoto = null;
+        toast("已删除", "ok");
+        loadPhotos();
+      })
+      .catch(function (err) { toast(err.message, "err"); });
+  });
+
+  // ---------- 设置 ----------
+  els.setAutosave.addEventListener("change", function () {
+    try { localStorage.setItem(LS_AUTOSAVE, els.setAutosave.checked ? "1" : "0"); } catch (e) {}
+  });
+
+  els.btnLogout.addEventListener("click", function () {
+    if (!window.confirm("退出登录？本机记住的账号信息将被清除。")) return;
+    logout();
+  });
+
+  function logout() {
+    try { localStorage.removeItem(LS_USER); } catch (e) {}
+    user = null;
+    allPhotos = [];
+    stopStream();
+    els.shotPreview.classList.add("hidden");
+    els.shotImg.src = "";
+    showLogin();
+  }
+
+  // ---------- 启动 ----------
+  (function init() {
+    // 读取记住的登录
+    try {
+      var saved = JSON.parse(localStorage.getItem(LS_USER) || "null");
+      if (saved && saved.username && saved.pin) {
+        user = saved;
+        showApp();
+        return;
+      }
+    } catch (e) {}
+    showLogin();
+  })();
+
+  // 页面隐藏时释放摄像头（省电）
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && els.shotPreview.classList.contains("hidden")) stopStream();
+  });
+})();
+
+</script>
+</body>
+</html>
